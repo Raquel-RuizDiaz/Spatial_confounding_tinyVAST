@@ -14,11 +14,14 @@ rmse <- function(vec) sqrt(mean(vec^2))
 config_fig4 <- list(
   seed = 101,
   n_simulations = 50,  # Reduced for faster computation across treatments
-  sample_sizes = c(50, 100, 200),  # Multiple sample sizes
-  n_false_covariates = c(1, 3, 5),  # Different numbers of false covariates (excluding the real one)
+  #sample_sizes = c(50, 100, 200),  # Multiple sample sizes
+  sample_sizes = c(200),  # Multiple sample sizes
+  #n_false_covariates = c(1, 3, 5),  # Different numbers of false covariates (excluding the real one)
+  n_false_covariates = c(1),  # Different numbers of false covariates (excluding the real one)
   alpha = 0.05,
   decorrelation_dist = 0.5,
-  measurement_error = "normal"
+  measurement_error = "normal",
+  Xreal_to_Z = 2
 )
 
 # Modified simulation function for factorial design
@@ -26,6 +29,7 @@ run_factorial_simulation <- function(
     n_s = 100,
     n_false_covariates = 3,  # Number of FALSE covariates (real one is always included)
     decorrelation_dist = 0.5,
+    Xreal_to_Z = 2,               # Slope of X_true -> Z, which controls the corr(X_true, Z)
     measurement_error = "normal",
     n_simulations = 50,
     spatial_sd = 0.2,
@@ -57,9 +61,12 @@ run_factorial_simulation <- function(
     Q_ss <- (kappa^4 * spde$c0 + 2 * kappa^2 * spde$g1 + spde$g2) * tau^2
     
     # Generate spatial field and covariates (exactly as in your working code)
-    z_s <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_ss, n = 1))
-    x_sj <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_ss, n = n_covariates))
+    z_s <- as.matrix(A_is %*% rmvnorm_prec(prec = Q_ss, n = 1))
+    x_sj <- as.matrix(A_is %*% rmvnorm_prec(prec = Q_ss, n = n_covariates))
     
+    # Generate X_true -> Z to respond to reviewer
+    z_s = z_s + Xreal_to_Z * x_sj[,1]
+
     # Generate response (exactly as in your working code)
     linear_predictor <- z_s + x_sj %*% covariate_effects
     
@@ -295,7 +302,8 @@ for (n_s in config_fig4$sample_sizes) {
       decorrelation_dist = config_fig4$decorrelation_dist,
       measurement_error = config_fig4$measurement_error,
       alpha = config_fig4$alpha,
-      include_variable_selection = TRUE
+      include_variable_selection = TRUE,
+      Xreal_to_Z = config_fig4$Xreal_to_Z
     )
     
     factorial_results <- rbind(factorial_results, results)
