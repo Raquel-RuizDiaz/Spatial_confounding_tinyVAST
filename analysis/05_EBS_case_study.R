@@ -204,3 +204,82 @@ for(i in 1:length(species_list)) {
   cat(paste("  Spatial RSR - Linear:", round(species_results[[i]]$alphaprime_j[1], 3), 
             "Quadratic:", round(species_results[[i]]$alphaprime_j[2], 3), "\n"))
 }
+
+
+##########################################
+## GGPLOT Figure for consistency
+##########################################
+library(ggplot2)
+library(dplyr)
+library(cowplot)
+library(ggpubr)
+
+# Build long-format dataframe
+model_names <- c("GLM", "SGLMM", "RSR-SGLMM")
+model_keys  <- c("m1", "m2", "m3")
+pred_list   <- list(pred_m1, pred_m2, pred_m3)
+
+plot_df <- data.frame()
+
+for (i in seq_along(species_list)) {
+  for (m in 1:3) {
+    
+    pred_raw <- exp(pred_list[[m]][[i]])
+    max_val  <- max(pred_raw)
+    pred_scaled <- pred_raw / max_val
+    
+    plot_df <- rbind(plot_df, data.frame(
+      species   = species_names[i],
+      model     = model_names[m],
+      temp      = x_z,
+      mean      = pred_scaled[, 1],
+      lower     = pred_scaled[, 2],
+      upper     = pred_scaled[, 3]
+    ))
+  }
+}
+
+# Factor ordering
+plot_df$model <- factor(plot_df$model, levels = model_names)
+
+model_colors <- c(
+  "GLM"       = "#440154FF",
+  "SGLMM"     = "#31688EFF",
+  "RSR-SGLMM" = "#35B779FF"
+)
+
+p_case <- ggplot(plot_df, aes(x = temp, color = model, fill = model)) +
+  geom_ribbon(aes(ymin = lower, ymax = upper), 
+              alpha = 0.2, color = NA) +
+  geom_line(aes(y = mean), linewidth = 1.1) +
+  facet_wrap(~ species, nrow = 1) +
+  scale_color_manual(values = model_colors) +
+  scale_fill_manual(values  = model_colors) +
+  labs(
+    x     = "Bottom temperature (°C)",
+    y     = "Relative density",
+    color = "Model",
+    fill  = "Model"
+  ) +
+  theme_bw() +
+  theme(
+    plot.title      = element_text(size = 14, face = "bold", hjust = 0.5),
+    strip.text      = element_text(size = 12, face = "bold"),
+    axis.title.x    = element_text(size = 13, margin = margin(t = 15)),
+    axis.text.x     = element_text(size = 10),
+    axis.title.y    = element_text(size = 13, margin = margin(r = 15)),
+    axis.text.y     = element_text(size = 12),
+    legend.position = "bottom",
+    legend.title    = element_text(size = 14, face = "bold"),
+    legend.text     = element_text(size = 12),
+    panel.grid      = element_blank()
+    
+  )
+
+ggsave(
+  filename = file.path(run_dir, "EBS_3_species_comparison_ggplot.png"),
+  plot     = p_case,
+  bg       = "white",
+  width    = 10, height = 4, units = "in", dpi = 300
+)
+

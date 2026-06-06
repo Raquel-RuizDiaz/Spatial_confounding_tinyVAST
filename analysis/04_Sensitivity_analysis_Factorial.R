@@ -16,12 +16,12 @@ rmse <- function(vec) sqrt(mean(vec^2))
 config_fig4b <- list(
   seed = 101,
   n_simulations = 50,
-  sample_sizes       = c(50, 100, 200),   # Original factorial axis 1
-  n_false_covariates = c(1, 3, 5),        # Original factorial axis 2
+  sample_sizes       = c(50, 100, 200), 
+  n_false_covariates = c(1, 3, 5),      
   Xreal_to_Z         = 1,                 # Fixed moderate confounding (r ~ 0.5-0.7)
   alpha = 0.05,
-  decorrelation_dist_z = 2.0,
-  decorrelation_dist_x = 0.5,
+  decorrelation_dist_omega = 2.0,
+  decorrelation_dist_z = 0.5,
   measurement_error = "normal",
   spatial_sd = 0.2,
   measurement_sd = 0.2
@@ -34,8 +34,8 @@ config_fig4b <- list(
 run_factorial_simulation <- function(
     n_s = 100,
     n_false_covariates = 3,
-    decorrelation_dist_z = 2.0,
-    decorrelation_dist_x = 0.5,
+    decorrelation_dist_omega = 2.0,
+    decorrelation_dist_z = 0.5,
     Xreal_to_Z = 1,
     measurement_error = "normal",
     n_simulations = 50,
@@ -49,10 +49,10 @@ run_factorial_simulation <- function(
   covariate_effects <- c(1, rep(0, n_false_covariates))
   results           <- data.frame()
   
+  kappa_omega <- sqrt(8) / decorrelation_dist_omega
+  tau_omega   <- 1 / kappa_omega / spatial_sd / sqrt(4 * pi)
   kappa_z <- sqrt(8) / decorrelation_dist_z
   tau_z   <- 1 / kappa_z / spatial_sd / sqrt(4 * pi)
-  kappa_x <- sqrt(8) / decorrelation_dist_x
-  tau_x   <- 1 / kappa_x / spatial_sd / sqrt(4 * pi)
   
   cat("Running factorial: n_s =", n_s, ", n_false =", n_false_covariates, "\n")
   
@@ -63,18 +63,18 @@ run_factorial_simulation <- function(
     spde <- fmesher::fm_fem(mesh)
     A_is <- Matrix::drop0(fmesher::fm_evaluator(mesh, loc = xy_i)$proj$A)
     
+    Q_omega <- (kappa_omega^4 * spde$c0 + 2 * kappa_omega^2 * spde$g1 + spde$g2) * tau_omega^2
     Q_z <- (kappa_z^4 * spde$c0 + 2 * kappa_z^2 * spde$g1 + spde$g2) * tau_z^2
-    Q_x <- (kappa_x^4 * spde$c0 + 2 * kappa_x^2 * spde$g1 + spde$g2) * tau_x^2
     
-    z_s  <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_z, n = 1))
-    x_sj <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_x, n = n_covariates))
+    omega_s  <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_omega, n = 1))
+    zW_sj <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_z, n = n_covariates))
     
     # Induce confounding between X_true and Z
-    z_s <- z_s + Xreal_to_Z * x_sj[, 1]
+    omega_s <- omega_s + Xreal_to_Z * zW_sj[, 1]
     
-    realized_corr <- cor(z_s, x_sj[, 1])[1, 1]
+    realized_corr <- cor(omega_s, zW_sj[, 1])[1, 1]
     
-    linear_predictor <- z_s + x_sj %*% covariate_effects
+    linear_predictor <- omega_s + zW_sj %*% covariate_effects
     
     if (measurement_error == "normal") {
       d_s     <- rnorm(n = length(linear_predictor), mean = linear_predictor, sd = measurement_sd)
@@ -88,7 +88,7 @@ run_factorial_simulation <- function(
     
     covariate_names <- c("real", paste0("false_", 1:n_false_covariates))
     dat <- data.frame(X1 = xy_i[,1], X2 = xy_i[,2], d = d_s, dtrue = linear_predictor)
-    dat <- cbind(dat, setNames(as.data.frame(x_sj), covariate_names))
+    dat <- cbind(dat, setNames(as.data.frame(zW_sj), covariate_names))
     
     models_to_fit <- c("Covariate_Only", "VAST_GMRF", "VAST_RSR")
     if (include_variable_selection) models_to_fit <- c(models_to_fit, "VAST_Selected")
@@ -227,8 +227,8 @@ for (n_s in config_fig4b$sample_sizes) {
       n_s                  = n_s,
       n_false_covariates   = n_false,
       Xreal_to_Z           = config_fig4b$Xreal_to_Z,
+      decorrelation_dist_omega = config_fig4b$decorrelation_dist_omega,
       decorrelation_dist_z = config_fig4b$decorrelation_dist_z,
-      decorrelation_dist_x = config_fig4b$decorrelation_dist_x,
       n_simulations        = config_fig4b$n_simulations,
       measurement_error    = config_fig4b$measurement_error,
       spatial_sd           = config_fig4b$spatial_sd,
@@ -240,7 +240,7 @@ for (n_s in config_fig4b$sample_sizes) {
   }
 }
 
-write.csv(results_fig4b, "results/fig4b_factorial_with_confounding_results.csv", row.names = FALSE)
+#write.csv(results_fig4b, "results/fig4b_factorial_with_confounding_results.csv", row.names = FALSE)
 
 ###################
 # Plotting — original Figure 4 style
@@ -263,13 +263,17 @@ model_labels <- c(
 
 shared_theme <- theme_bw() +
   theme(
-    plot.title      = element_text(size = 12, face = "bold", hjust = 0.5),
-    strip.text      = element_text(size = 10, face = "bold"),
-    axis.title.x    = element_text(size = 11, margin = margin(t = 10)),
-    axis.text.x     = element_text(angle = 45, hjust = 1, size = 8),
-    axis.title.y    = element_text(size = 11, margin = margin(r = 8)),
-    axis.text.y     = element_text(size = 9),
-    legend.position = "none"
+    plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
+    plot.subtitle = element_text(size = 12),
+    strip.text = element_text(size = 12, face = "bold"),
+    axis.title.x = element_text(size = 13, margin = margin(t = 15)),
+    axis.text.x = element_text(angle = 45, hjust = 1, size =10),
+    axis.title.y = element_text(size = 13, margin = margin(r = 15)),
+    axis.text.y = element_text(size = 12),
+    legend.position = "none",
+    legend.title = element_text(size = 14),
+    legend.text = element_text(size = 12),
+    panel.grid      = element_blank()
   )
 
 # Mean realized correlation for subtitle
@@ -294,10 +298,10 @@ fig4b_uncond <- results_fig4b %>%
   scale_fill_manual(values = model_colors, labels = model_labels) +
   scale_x_discrete(labels = model_labels) +
   labs(
-    title    = paste0("Unconditional prediction RMSE (induced confounding: r \u2248 ", mean_corr, ")"),
-    subtitle = "Rows: sample size | Columns: number of false covariates",
+    title    = "Unconditional prediction",
+    #subtitle = "Rows: sample size | Columns: number of false covariates",
     x        = "Model",
-    y        = "RMSE (unconditional prediction)"
+    y        = "RMSE"
   ) +
   shared_theme
 
@@ -318,7 +322,7 @@ fig4b_cond <- results_fig4b %>%
   scale_x_discrete(labels = model_labels) +
   labs(
     title    = paste0("Conditional prediction RMSE (induced confounding: r \u2248 ", mean_corr, ")"),
-    subtitle = "Rows: sample size | Columns: number of false covariates",
+    #subtitle = "Rows: sample size | Columns: number of false covariates",
     x        = "Model",
     y        = "RMSE (conditional prediction)"
   ) +
@@ -343,14 +347,14 @@ shared_legend <- ggpubr::get_legend(legend_plot)
 fig4b_final <- plot_grid(
   fig4b_uncond, shared_legend,
   ncol        = 1,
-  rel_heights = c(0.46, 0.08)
+  rel_heights = c(1, 0.08)
 )
 
 print(fig4b_final)
 
 ggsave(
-  filename = "figures/Figure4b_factorial_with_confounding.png",
-  plot     = fig4b_final,
+  filename = "figures/Figure4b_factorial_with_confounding_final.png",
+  plot     = fig4b_uncond,
   bg       = "white",
-  width    = 10, height = 10, units = "in", dpi = 300
+  width    = 10, height = 8, units = "in", dpi = 300
 )

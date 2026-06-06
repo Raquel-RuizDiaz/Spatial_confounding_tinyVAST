@@ -44,7 +44,7 @@ run_factorial_simulation <- function(
   # Storage for results
   results <- data.frame()
   
-  # Simulation parameters (exactly as in your working code)
+  # Simulation parameters
   kappa <- sqrt(8) / decorrelation_dist
   tau <- 1 / kappa / spatial_sd / sqrt(4 * pi)
   
@@ -52,7 +52,7 @@ run_factorial_simulation <- function(
   
   for (sim in 1:n_simulations) {
     
-    # Generate spatial structure (exactly as in your working code)
+    # Generate spatial structure 
     xy_i <- pracma::poisson2disk(n = n_s)
     mesh <- fmesher::fm_mesh_2d(xy_i)
     spde <- fmesher::fm_fem(mesh)
@@ -60,14 +60,16 @@ run_factorial_simulation <- function(
     A_is <- Matrix::drop0(fmesher::fm_evaluator(mesh, loc = xy_i)$proj$A)
     Q_ss <- (kappa^4 * spde$c0 + 2 * kappa^2 * spde$g1 + spde$g2) * tau^2
     
-    # Generate spatial field and covariates (exactly as in your working code)
-    z_s <- as.matrix(A_is %*% rmvnorm_prec(prec = Q_ss, n = 1))
-    x_sj <- as.matrix(A_is %*% rmvnorm_prec(prec = Q_ss, n = n_covariates))
+    # Generate spatial field and covariates
+    z_s <- as.matrix(A_is %*% rmvnorm_prec(Q= Q_ss, n = 1))
+    x_sj <- as.matrix(A_is %*% rmvnorm_prec(Q= Q_ss, n = n_covariates))
     
     # Generate X_true -> Z to respond to reviewer
     z_s = z_s + Xreal_to_Z * x_sj[,1]
+   
+    realized_corr <- cor(z_s, x_sj[,1])
 
-    # Generate response (exactly as in your working code)
+    # Generate response
     linear_predictor <- z_s + x_sj %*% covariate_effects
     
     if (measurement_error == "normal") {
@@ -314,8 +316,8 @@ for (n_s in config_fig4$sample_sizes) {
 # Create summary for factorial results
 factorial_summary <- create_factorial_summary(factorial_results)
 
-factorial_results<- read.csv("results/factorial_simulation_results.csv")
-factorial_summary<- read.csv("results/factorial_simulation_summary.csv")
+#factorial_results<- read.csv("results/factorial_simulation_results.csv")
+#factorial_summary<- read.csv("results/factorial_simulation_summary.csv")
 
 
 model_colors <- c(

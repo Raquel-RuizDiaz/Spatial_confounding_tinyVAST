@@ -32,7 +32,7 @@ run_enhanced_simulation <- function(
     measurement_sd = 0.2,
     n_simulations = 50,
     alpha = 0.05,
-    include_variable_selection = TRUE,  # Option to include from first code,
+    include_variable_selection = TRUE,
     include_cv_rmse = TRUE
 ) {
   
@@ -47,7 +47,7 @@ run_enhanced_simulation <- function(
   
   for (sim in 1:n_simulations) {
     
-    # Generate spatial structure (same as both codes)
+    # Generate spatial structure
     xy_i <- pracma::poisson2disk(n = n_s)
     mesh <- fmesher::fm_mesh_2d(xy_i)
     spde <- fmesher::fm_fem(mesh)
@@ -56,11 +56,11 @@ run_enhanced_simulation <- function(
     Q_ss <- (kappa^4 * spde$c0 + 2 * kappa^2 * spde$g1 + spde$g2) * tau^2
     
     # Generate spatial field and covariates
-    z_s <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_ss, n = 1))
-    x_sj <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_ss, n = n_covariates))
+    omega_s <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_ss, n = 1))
+    zW_sj <- as.matrix(A_is %*% rmvnorm_prec(Q = Q_ss, n = n_covariates))
     
     # Generate response
-    linear_predictor <- z_s + x_sj %*% covariate_effects
+    linear_predictor <- omega_s + zW_sj %*% covariate_effects
     
     if (measurement_error == "normal") {
       SD <- measurement_sd
@@ -81,7 +81,7 @@ run_enhanced_simulation <- function(
       X1 = xy_i[,1], X2 = xy_i[,2],
       d = d_s, dtrue = linear_predictor
     )
-    dat <- cbind(dat, setNames(as.data.frame(x_sj), covariate_names))
+    dat <- cbind(dat, setNames(as.data.frame(zW_sj), covariate_names))
     
     # Fit models with error handling
     models_to_fit <- c("Covariate_Only", "VAST_GMRF", "VAST_RSR")
@@ -329,14 +329,12 @@ print(head(summary_results))
 # Save results
 #write.csv(summary_results, "results/spatial_model_comparison_nj4.csv", row.names = FALSE)
 
-# Reload
-if( FALSE ){
-  results_dir = R'(C:\Users\James.Thorson\Desktop\Git\spatio-temporal-autocorrelation\results)'
-  summary_results = read.csv( file.path(results_dir, "spatial_model_comparison_nj4.csv") )
-}
+#############################################################################################
+## Load models
+#############################################################################################
 
-summary_results<- read.csv("results/spatial_model_comparison_nj4.csv")
-all_results<- read.csv("results/spatial_model_comparison_nj4_allresults.csv")
+#summary_results<- read.csv("results/spatial_model_comparison_nj4.csv")
+#all_results<- read.csv("results/spatial_model_comparison_nj4_allresults.csv")
 
 # Summarize
 tmp = subset(all_results, Covariate == "real" )
@@ -347,7 +345,7 @@ create_performance_plots <- function(summary_results) {
   # Color palette
   model_colors <- c(
     "Covariate_Only" = "#440154FF",
-    "VAST_Normal" = "#31688EFF", 
+    "VAST_GMRF" = "#31688EFF", 
     "VAST_RSR" = "#35B779FF",
     "VAST_Selected" = "gold"
   )
@@ -355,7 +353,7 @@ create_performance_plots <- function(summary_results) {
   # Custom x-axis labels
   model_labels <- c(
     "Covariate_Only" = "GLM",
-    "VAST_Normal" = "SGLMM", 
+    "VAST_GMRF" = "SGLMM", 
     "VAST_RSR" = "RSR-SGLMM",
     "VAST_Selected" = "SGLMM-selected"
   )
@@ -370,17 +368,17 @@ create_performance_plots <- function(summary_results) {
     facet_wrap(~Covariate, scales = "free_y", labeller = labeller(Covariate = covariate_labels)) +
     geom_hline(yintercept = 0.05, linetype = "dashed", color = "red", size = 1) +
     scale_fill_manual(values = model_colors, labels = model_labels) +
-    scale_y_continuous(limits = c(0, 1), labels = scales::percent) +
+    scale_y_continuous(limits = c(0, 1)) +
     labs(
-      #title = "Type I Error Rate (False Discovery)",
+      title = "Type I Error Rate",
       #subtitle = "Proportion of times covariate is detected when no effect exists",
       x = "Sample Size",
-      y = "Type I Error Rate",
+      y = "Proportion",
       fill = "Model"
     ) +
-    theme_minimal() +
+    theme_bw() +
     theme(
-      plot.title = element_text(size = 14, face = "bold"),
+      plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
       plot.subtitle = element_text(size = 12),
       strip.text = element_text(size = 12, face = "bold"),
       axis.title.x = element_text(size = 13, margin = margin(t = 15)),
@@ -390,6 +388,7 @@ create_performance_plots <- function(summary_results) {
       legend.position = "none",
       legend.title = element_text(size = 14),
       legend.text = element_text(size = 12),
+      panel.grid      = element_blank()
     )
   
   # Plot 2: Power (True Discovery)
@@ -410,7 +409,8 @@ create_performance_plots <- function(summary_results) {
     theme(
       plot.title = element_text(size = 14, face = "bold"),
       plot.subtitle = element_text(size = 12),
-      legend.position = "bottom"
+      legend.position = "bottom",
+      panel.grid      = element_blank()
     )
   
   # Plot 3: Bias in estimates
@@ -431,7 +431,8 @@ create_performance_plots <- function(summary_results) {
     theme(
       plot.title = element_text(size = 14, face = "bold"),
       plot.subtitle = element_text(size = 12),
-      legend.position = "bottom"
+      legend.position = "bottom",
+      panel.grid      = element_blank()
     )
   
   # Plot 4: Coverage probability
@@ -453,7 +454,8 @@ create_performance_plots <- function(summary_results) {
     theme(
       plot.title = element_text(size = 14, face = "bold"),
       plot.subtitle = element_text(size = 12),
-      legend.position = "bottom"
+      legend.position = "bottom",
+      panel.grid      = element_blank()
     )
   
   return(list(
@@ -467,7 +469,7 @@ create_performance_plots <- function(summary_results) {
 # Real effect violin plot
 model_colors <- c(
   "Covariate_Only" = "#440154FF",
-  "VAST_Normal" = "#31688EFF", 
+  "VAST_GMRF" = "#31688EFF", 
   "VAST_RSR" = "#35B779FF",
   "VAST_Selected" = "gold"
 )
@@ -475,14 +477,17 @@ model_colors <- c(
 # Custom x-axis labels
 model_labels <- c(
   "Covariate_Only" = "GLM",
-  "VAST_Normal" = "SGLMM", 
+  "VAST_GMRF" = "SGLMM", 
   "VAST_RSR" = "RSR-SGLMM",
   "VAST_Selected" = "SGLMM-selected"
 )
 
 rmse_slope_violin_plot <- ggplot(subset(all_results, Covariate=="real")) +
   geom_violin(aes(x = Model, y = Estimate, fill = Model)) +
-  # facet_grid removed and title added below
+  geom_boxplot(aes(x = Model, y = Estimate), 
+               width = 0.1, 
+               fill = "white", 
+               outlier.size = 0.3) +
   labs(title = "Coefficient estimate") + 
   scale_fill_manual(values = model_colors, labels = model_labels) +
   scale_x_discrete(labels = model_labels) +
@@ -498,7 +503,8 @@ rmse_slope_violin_plot <- ggplot(subset(all_results, Covariate=="real")) +
     axis.text.y = element_text(size = 12),
     legend.position = "none",
     legend.title = element_text(size = 14),
-    legend.text = element_text(size = 12)
+    legend.text = element_text(size = 12),
+    panel.grid      = element_blank()
   )
 
 rmse_pred_boxplot <- ggplot(subset(all_results, Covariate=="real")) +
@@ -509,7 +515,7 @@ rmse_pred_boxplot <- ggplot(subset(all_results, Covariate=="real")) +
   labs(
     title = "Unconditional prediction",
     x = "Model",
-    y = "RMSE latent",
+    y = "RMSE",
     fill = "Model"
   ) +
   theme_bw() +
@@ -524,7 +530,8 @@ rmse_pred_boxplot <- ggplot(subset(all_results, Covariate=="real")) +
     axis.text.y = element_text(size = 12),
     legend.position = "none",
     legend.title = element_text(size = 14),
-    legend.text = element_text(size = 12)
+    legend.text = element_text(size = 12),
+    panel.grid      = element_blank()
   )
 
 rmse_pred_gmrf_boxplot <- ggplot(subset(all_results, Covariate=="real")) +
@@ -535,7 +542,7 @@ rmse_pred_gmrf_boxplot <- ggplot(subset(all_results, Covariate=="real")) +
   labs(
     title = "Conditional prediction",
     x = "Model",
-    y = "RMSE with GMRF",
+    y = "RMSE",
     fill = "Model"
   ) +
   theme_bw() +
@@ -550,7 +557,8 @@ rmse_pred_gmrf_boxplot <- ggplot(subset(all_results, Covariate=="real")) +
     axis.text.y = element_text(size = 12),
     legend.position = "none",
     legend.title = element_text(size = 14),
-    legend.text = element_text(size = 12)
+    legend.text = element_text(size = 12),
+    panel.grid      = element_blank()
   )
 
 
@@ -604,8 +612,8 @@ fig3_panels <- plot_grid(
   labels = c("A)", "B)", "C)", "D)"),
   label_size = 16,
   ncol = 2
-  #label_x = c(0.05, 0.05, 0.05, 0.05)  # move C & D a bit right
-  #label_y = c(1, 1, 1, 1)         # keep vertical position same
+  #label_x = c(0.05, 0.05, 0.05, 0.05)  
+  #label_y = c(1, 1, 1, 1)         
 )
 
 
@@ -619,7 +627,7 @@ fig3_option1b <- plot_grid(
 
 # Save
 ggsave(
-  filename = "figures/Figure2_Spatial_model_performance_comparison2.png",
+  filename = "figures/Figure2_Spatial_model_performance_comparison_final.png",
   plot     = fig3_option1b,
   bg       = "white",
   width    = 350, height = 250, units = "mm", dpi = 300
