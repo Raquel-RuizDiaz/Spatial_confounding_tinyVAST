@@ -1,4 +1,7 @@
 library(tinyVAST)
+# tinyVAST >= 1.6 keeps rmvnorm_prec() internal with argument `prec` (same wrapper as the revision-2 scripts)
+rmvnorm_prec <- function(Q, n = 1) tinyVAST:::rmvnorm_prec(prec = Q, n = n)
+cat("tinyVAST version:", as.character(packageVersion("tinyVAST")), "\n")
 library(ggplot2)
 library(dplyr)
 library(gridExtra)
@@ -320,21 +323,21 @@ for (sample_size in config$sample_sizes) {
   all_results <- rbind(all_results, results)
 }
 
-#write.csv(all_results, "results/spatial_model_comparison_nj4_allresults.csv", row.names = FALSE)
+write.csv(all_results, "results/Simulation1_independent_results.csv", row.names = FALSE)
 
 # Create summary for all results
 summary_results <- create_enhanced_summary(all_results)
 print(head(summary_results))
 
 # Save results
-#write.csv(summary_results, "results/spatial_model_comparison_nj4.csv", row.names = FALSE)
+write.csv(summary_results, "results/Simulation1_independent_summary.csv", row.names = FALSE)
 
 #############################################################################################
 ## Load models
 #############################################################################################
 
-#summary_results<- read.csv("results/spatial_model_comparison_nj4.csv")
-#all_results<- read.csv("results/spatial_model_comparison_nj4_allresults.csv")
+summary_results<- read.csv("results/Simulation1_independent_summary.csv")
+all_results<- read.csv("results/Simulation1_independent_results.csv")
 
 # Summarize
 tmp = subset(all_results, Covariate == "real" )
@@ -627,7 +630,7 @@ fig3_option1b <- plot_grid(
 
 # Save
 ggsave(
-  filename = "figures/Figure2_Spatial_model_performance_comparison_final.png",
+  filename = "figures/Figure1_Simulation1.png",
   plot     = fig3_option1b,
   bg       = "white",
   width    = 350, height = 250, units = "mm", dpi = 300

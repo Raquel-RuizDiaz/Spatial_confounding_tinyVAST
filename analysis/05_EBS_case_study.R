@@ -7,12 +7,16 @@ library(tinyVAST)
 library(gridExtra)  # For arranging multiple plots
 library(mvtnorm)  # sample from covariance
 library(abind)  # Manipulate results
+cat("tinyVAST version:", as.character(packageVersion("tinyVAST")), "\n")
 
 set.seed(123)
+options(warn = 1)
+NL <- 2  # two Newton steps after nlminb so every fit converges (max |gradient| < 1e-4)
+cat("newton_loops =", NL, "\n")
 
-# Your existing setup code remains the same...
+# setup
 region <- "EBS"
-root_dir <- here::here()
+root_dir <- "."
 data_dir <- file.path(root_dir, "data")
 region_data_all <- read.csv(file.path(data_dir, "all_EBS_data_2021.csv"))
 bdepth <- rast(file.path(data_dir, "bdepth.tif"))
@@ -44,7 +48,8 @@ fit_species_models <- function(species_col) {
     space_term = "",
     family = tweedie(),
     control = tinyVASTcontrol(
-      trace = 1,
+      trace = 0,
+      newton_loops = NL,
       get_rsr = TRUE
     )
   )
@@ -55,18 +60,24 @@ fit_species_models <- function(species_col) {
     data = region_data_all,
     family = tweedie(),
     control = tinyVASTcontrol(
-      trace = 1,
+      trace = 0,
+      newton_loops = NL,
       get_rsr = TRUE
     )
   )
   
+  cat(species_col, "| spatial max|grad| =", signif(max(abs(tv_spatial$sdrep$gradient.fixed)),3), "| non-spatial max|grad| =", signif(max(abs(tv_nonspatial$sdrep$gradient.fixed)),3), "| pdHess:", tv_spatial$sdrep$pdHess, tv_nonspatial$sdrep$pdHess, "\n")
   # Extract coefficients and covariances
   alpha0_j <- as.list(tv_nonspatial$sdrep, what = "Estimate")$alpha_j[2:3]
   V_alpha0_j <- tv_nonspatial$sdrep$cov.fixed[2:3,2:3]
   alpha_j <- as.list(tv_spatial$sdrep, what = "Estimate")$alpha_j[2:3]
   V_alpha_j <- tv_spatial$sdrep$cov.fixed[2:3,2:3]
   alphaprime_j <- as.list(tv_spatial$sdrep, what = "Estimate", report = TRUE)$alphaprime_j[2:3]
-  V_alphaprime_j <- tv_spatial$sdrep$cov[2:3,2:3]
+  # Covariance of the RSR slopes: use the rows of sdrep$cov labelled alphaprime_j (robust to ADREPORT order)
+  rep_names <- names(tv_spatial$sdrep$value)
+  idx <- which(rep_names == "alphaprime_j")[2:3]
+  cat(species_col, ": ADREPORT blocks =", paste(unique(rep_names), collapse = ", "), "| alphaprime_j rows used =", paste(idx, collapse = ","), "| original index [2:3] correct =", identical(as.integer(idx), 2:3), "\n")
+  V_alphaprime_j <- tv_spatial$sdrep$cov[idx, idx]
   
   return(list(
     alpha0_j = alpha0_j,
@@ -135,63 +146,6 @@ for(m in 1:3 ){
 run_dir <- file.path(root_dir, "figures")
 dir.create(run_dir, recursive = TRUE, showWarnings = FALSE)
 
-# Option 1: Base R plot with all species in one panel
-png(file = file.path(run_dir, "EBS_3_species_comparison_renamed2.png"), 
-    width = 15, height = 5, res = 300, units = "in")
-
-par(mfrow = c(1, 3), mar = c(3,4,2,1), mgp = c(2,0.5,0), tck = -0.02)
-
-# Individual plots for each species
-model_labels <- c("GLM", "SGLMM", "RSR-SGLMM")
-
-for(i in 1:length(species_list)) {
-  Y_zzm_log = abind( pred_m1[[i]], pred_m2[[i]], pred_m3[[i]], along = 3 )
-  Y_zzm_density <- exp(Y_zzm_log)
-  
-  # RESCALE EACH CURVE TO HAVE MAXIMUM VALUE OF 1.0
-  Y_zzm_rescaled <- Y_zzm_density
-  for(m in 1:3) {
-    # Find the maximum value across all columns for this model
-    max_val <- max(Y_zzm_density[,,m])
-    # Rescale all values for this model
-    Y_zzm_rescaled[,,m] <- Y_zzm_density[,,m] / max_val
-  }
-  
-  plot( x=1, y = 1, type = "n", xlim = range(x_z), ylim = range(Y_zzm_rescaled),
-        ylab = "Relative Density",
-        xlab = "Bottom temperature (°C)",
-        main = species_names[i],
-        cex.lab = 1.5,    # Axis labels size
-        cex.axis = 1.3,   # Axis tick labels size
-        cex.main = 1.6    # Main title size
-  )
-  for(m in 1:3){
-    lines(
-      x = x_z,
-      y = Y_zzm_rescaled[,1,m],
-      type = "l",
-      lty = "solid",
-      col = viridisLite::viridis(3)[m],
-      lwd = 2
-    )
-    polygon(
-      x = c( x_z, rev(x_z) ),
-      y = c( Y_zzm_rescaled[,2,m], rev(Y_zzm_rescaled[,3,m]) ),
-      border = NA,
-      col = viridisLite::viridis(3, alpha = 0.2)[m]
-    )
-  }
-  
-  if(i == 1) {
-    legend("bottomleft",
-           fill = viridisLite::viridis(3),
-           legend = model_labels,
-           bty = "n",
-           cex = 1.5)
-  }
-}
-
-dev.off()
 
 # Print summary statistics
 cat("\nSummary of temperature coefficients:\n")
@@ -207,7 +161,7 @@ for(i in 1:length(species_list)) {
 
 
 ##########################################
-## GGPLOT Figure for consistency
+## Figure
 ##########################################
 library(ggplot2)
 library(dplyr)
@@ -277,9 +231,19 @@ p_case <- ggplot(plot_df, aes(x = temp, color = model, fill = model)) +
   )
 
 ggsave(
-  filename = file.path(run_dir, "EBS_3_species_comparison_ggplot.png"),
+  filename = file.path(run_dir, "Figure4_case_study.png"),
   plot     = p_case,
   bg       = "white",
   width    = 10, height = 4, units = "in", dpi = 300
 )
 
+
+# Save fitted coefficients and plotted curves
+out_dir <- file.path(root_dir, "results")
+saveRDS(species_results, file.path(out_dir, "EBS_case_study_coefficients.rds"))
+coef_df <- do.call(rbind, lapply(seq_along(species_list), function(i) data.frame(
+  species = species_names[i], model = rep(c("GLM", "SGLMM", "RSR-SGLMM"), each = 2), term = rep(c("btemp", "btemp^2"), 3),
+  estimate = c(species_results[[i]]$alpha0_j, species_results[[i]]$alpha_j, species_results[[i]]$alphaprime_j),
+  se = sqrt(c(diag(species_results[[i]]$V_alpha0_j), diag(species_results[[i]]$V_alpha_j), diag(species_results[[i]]$V_alphaprime_j))))))
+write.csv(coef_df, file.path(out_dir, "EBS_case_study_coefficients.csv"), row.names = FALSE)
+write.csv(plot_df, file.path(out_dir, "EBS_case_study_curves.csv"), row.names = FALSE)

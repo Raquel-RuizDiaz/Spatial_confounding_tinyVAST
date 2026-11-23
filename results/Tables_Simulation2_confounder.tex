@@ -1,0 +1,61 @@
+% Requires \usepackage{booktabs}
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Slope estimates for the true covariate in the shared-field sensitivity analysis (50 replicates per level). $\lambda$ is the strength with which the covariate shares the latent field, and $r$ is the mean realized correlation between $z_s$ and $\omega_s$. Total is the mean total effect, calculated in each replicate as $1 + \mathrm{cov}(\omega, z)/\mathrm{var}(z)$. Mean $\hat{\beta}$ and SD are the mean and standard deviation of the estimated slope across replicates. Bias is the mean of $\hat{\beta}$ minus the target, and RMSE is the root mean squared difference between $\hat{\beta}$ and the target. GLM and RSR-SGLMM slope estimates are identical.}
+\label{tab:si_shared_slope}
+\begin{tabular}{llrrrrrrrr}
+\toprule
+ & & & & & & \multicolumn{2}{c}{Direct effect} & \multicolumn{2}{c}{Total effect} \\
+\cmidrule(lr){7-8}\cmidrule(lr){9-10}
+Estimator & $\lambda$ & $r$ & Total & Mean $\hat{\beta}$ & SD & Bias & RMSE & Bias & RMSE \\
+\midrule
+GLM & 0 & $-0.04$ & $0.97$ & $0.99$ & $0.19$ & $-0.01$ & $0.19$ & $0.03$ & $0.14$ \\
+ & 0.35 & $0.27$ & $1.18$ & $1.15$ & $0.20$ & $0.15$ & $0.25$ & $-0.03$ & $0.12$ \\
+ & 0.5 & $0.33$ & $1.21$ & $1.17$ & $0.20$ & $0.17$ & $0.26$ & $-0.04$ & $0.12$ \\
+ & 1 & $0.46$ & $1.26$ & $1.21$ & $0.19$ & $0.21$ & $0.28$ & $-0.05$ & $0.11$ \\
+ & 1.5 & $0.65$ & $1.30$ & $1.28$ & $0.12$ & $0.28$ & $0.31$ & $-0.01$ & $0.09$ \\
+ & 2 & $0.78$ & $1.33$ & $1.31$ & $0.11$ & $0.31$ & $0.33$ & $-0.01$ & $0.06$ \\
+ & 4 & $0.90$ & $1.21$ & $1.20$ & $0.05$ & $0.20$ & $0.21$ & $-0.01$ & $0.04$ \\
+\addlinespace
+SGLMM & 0 & $-0.04$ & $0.97$ & $1.01$ & $0.12$ & $0.01$ & $0.12$ & $0.04$ & $0.21$ \\
+ & 0.35 & $0.27$ & $1.18$ & $1.07$ & $0.15$ & $0.07$ & $0.16$ & $-0.10$ & $0.24$ \\
+ & 0.5 & $0.33$ & $1.21$ & $1.04$ & $0.09$ & $0.04$ & $0.10$ & $-0.17$ & $0.29$ \\
+ & 1 & $0.46$ & $1.26$ & $1.11$ & $0.11$ & $0.11$ & $0.15$ & $-0.15$ & $0.22$ \\
+ & 1.5 & $0.65$ & $1.30$ & $1.20$ & $0.11$ & $0.20$ & $0.23$ & $-0.10$ & $0.18$ \\
+ & 2 & $0.78$ & $1.33$ & $1.23$ & $0.11$ & $0.23$ & $0.25$ & $-0.10$ & $0.16$ \\
+ & 4 & $0.90$ & $1.21$ & $1.18$ & $0.06$ & $0.18$ & $0.19$ & $-0.03$ & $0.06$ \\
+\addlinespace
+RSR-SGLMM & 0 & $-0.04$ & $0.97$ & $0.99$ & $0.19$ & $-0.01$ & $0.19$ & $0.03$ & $0.14$ \\
+ & 0.35 & $0.27$ & $1.18$ & $1.15$ & $0.20$ & $0.15$ & $0.25$ & $-0.03$ & $0.12$ \\
+ & 0.5 & $0.33$ & $1.21$ & $1.17$ & $0.20$ & $0.17$ & $0.26$ & $-0.04$ & $0.12$ \\
+ & 1 & $0.46$ & $1.26$ & $1.21$ & $0.19$ & $0.21$ & $0.28$ & $-0.05$ & $0.11$ \\
+ & 1.5 & $0.65$ & $1.30$ & $1.28$ & $0.12$ & $0.28$ & $0.31$ & $-0.01$ & $0.09$ \\
+ & 2 & $0.78$ & $1.33$ & $1.31$ & $0.11$ & $0.31$ & $0.33$ & $-0.01$ & $0.06$ \\
+ & 4 & $0.90$ & $1.21$ & $1.20$ & $0.05$ & $0.20$ & $0.21$ & $-0.01$ & $0.04$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Partitioning and unconditional prediction in the shared-field sensitivity analysis (50 replicates per level). Slope on $z$ is the mean slope from regressing the SGLMM's estimated field on $z$. Mean $\hat{\delta}$ and SD $\hat{\delta}$ are the mean and standard deviation across replicates of the indirect effect on the true covariate (RSR-SGLMM slope minus SGLMM slope). The final columns give mean unconditional RMSE.}
+\label{tab:si_shared_partition}
+\begin{tabular}{lrrrrrr}
+\toprule
+ & & & & & \multicolumn{2}{c}{Unconditional RMSE} \\
+\cmidrule(lr){6-7}
+$\lambda$ & $r$ & Slope on $z$ & Mean $\hat{\delta}$ & SD $\hat{\delta}$ & SGLMM & GLM/RSR-SGLMM \\
+\midrule
+0 & $-0.04$ & $-0.03$ & $-0.02$ & $0.14$ & $0.124$ & $0.102$ \\
+0.35 & $0.27$ & $0.12$ & $0.07$ & $0.17$ & $0.141$ & $0.112$ \\
+0.5 & $0.33$ & $0.15$ & $0.13$ & $0.21$ & $0.136$ & $0.107$ \\
+1 & $0.46$ & $0.12$ & $0.11$ & $0.14$ & $0.125$ & $0.101$ \\
+1.5 & $0.65$ & $0.09$ & $0.08$ & $0.12$ & $0.103$ & $0.086$ \\
+2 & $0.78$ & $0.09$ & $0.09$ & $0.10$ & $0.103$ & $0.081$ \\
+4 & $0.90$ & $0.02$ & $0.02$ & $0.04$ & $0.057$ & $0.052$ \\
+\bottomrule
+\end{tabular}
+\end{table}

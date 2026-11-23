@@ -1,4 +1,5 @@
-# Figure 4 -Confounding strength
+# Simulation 3 (spatial latent variable as mediator).
+# Figure 3 is made from these results by 03b_Simulation3_mediator_figure.R.
 
 library(tinyVAST)
 library(ggplot2)
@@ -9,6 +10,8 @@ library(viridis)
 
 # Helper functions
 rmse <- function(vec) sqrt(mean(vec^2))
+# REVISION 2: tinyVAST >= 1.6 keeps rmvnorm_prec() internal with argument `prec`
+rmvnorm_prec <- function(Q, n = 1) tinyVAST:::rmvnorm_prec(prec = Q, n = n)
 
 # Configuration
 config_fig4a <- list(
@@ -16,7 +19,8 @@ config_fig4a <- list(
   n_simulations = 50,
   n_s = 200,                           # Fixed sample size
   n_false_covariates = 3,              # Fixed false covariates
-  confounding_strength = c(0, 0.5, 1, 2, 4),  # NEW axis: varying confounding
+  confounding_strength = c(0, 0.15, 0.25, 0.35, 0.5, 0.75, 1, 2, 4),
+  confounding_strength_reported = c(0, 0.15, 0.25, 0.5, 0.75, 1, 4),
   alpha = 0.05,
   decorrelation_dist_omega = 2.0,          # omega: smooth large-scale latent field
   decorrelation_dist_z = 0.5,          # z: local covariate
@@ -74,6 +78,7 @@ run_confounding_simulation <- function(
     
     # Induce correlation between X_true and Z (mediator-like)
     # X_true causes Z, making them correlated
+    omega0_s <- omega_s   # REVISION 2: keep the independent part of omega for variance partitioning
     omega_s <- omega_s + Xreal_to_Z * zW_sj[, 1]
     
     # Realized correlation after modification
@@ -119,12 +124,18 @@ run_confounding_simulation <- function(
               Realized_Corr      = realized_corr,
               Covariate          = coef_name,
               True_Effect        = covariate_effects[i],
+              Total_Effect       = covariate_effects[i] + (i == 1) * Xreal_to_Z,  # REVISION 2
               Estimate           = coef_summary[coef_name, "Estimate"],
               SE                 = coef_summary[coef_name, "Std. Error"],
               p_value            = coef_summary[coef_name, 4],
               Significant        = coef_summary[coef_name, 4] < alpha,
               RMSE_latent        = rmse(dat$dtrue - predictions),
               RMSE_with_gmrf     = NA,
+              Var_omega0         = var(omega0_s[, 1]),   # REVISION 2
+              Var_gammaX         = var(Xreal_to_Z * zW_sj[, 1]),
+              Var_field_hat      = NA,
+              Field_slope_on_X   = NA,
+              Cor_field_omega0   = NA,
               stringsAsFactors   = FALSE
             ))
           }
@@ -184,7 +195,10 @@ run_confounding_simulation <- function(
           p_values       <- 1 - pchisq((estimates / SE)^2, df = 1)
           predictions    <- invlink(fit$tmb_inputs$tmb_data$X_ij %*% estimates)
           pred_with_gmrf <- predict(fit)
-          
+          # REVISION 2: estimated spatial-field contribution (conditional minus fixed effects),
+          # used to check how variance is partitioned between beta and the field
+          field_hat      <- as.numeric(pred_with_gmrf - fit$tmb_inputs$tmb_data$X_ij %*% estimates)
+
           for (i in 2:length(estimates)) {
             coef_idx <- i - 1
             results <- rbind(results, data.frame(
@@ -196,12 +210,18 @@ run_confounding_simulation <- function(
               Realized_Corr      = realized_corr,
               Covariate          = covariate_names[coef_idx],
               True_Effect        = covariate_effects[coef_idx],
+              Total_Effect       = covariate_effects[coef_idx] + (coef_idx == 1) * Xreal_to_Z,  # REVISION 2
               Estimate           = estimates[i],
               SE                 = SE[i],
               p_value            = p_values[i],
               Significant        = p_values[i] < alpha,
               RMSE_latent        = rmse(dat$dtrue - predictions),
               RMSE_with_gmrf     = rmse(dat$dtrue - pred_with_gmrf),
+              Var_omega0         = var(omega0_s[, 1]),   # REVISION 2
+              Var_gammaX         = var(Xreal_to_Z * zW_sj[, 1]),
+              Var_field_hat      = var(field_hat),
+              Field_slope_on_X   = coef(lm(field_hat ~ zW_sj[, 1]))[2],
+              Cor_field_omega0   = cor(field_hat, omega0_s[, 1]),
               stringsAsFactors   = FALSE
             ))
           }
@@ -244,7 +264,83 @@ for (cs in config_fig4a$confounding_strength) {
   results_fig4a <- rbind(results_fig4a, results)
 }
 
-#write.csv(results_fig4a, "results/fig4a_confounding_strength_results.csv", row.names = FALSE)
+write.csv(results_fig4a, "results/Simulation3_mediator_results.csv", row.names = FALSE)
+
+# summaries and figure use the reported subset of confounding levels
+results_fig4a <- results_fig4a %>%
+  filter(Xreal_to_Z %in% config_fig4a$confounding_strength_reported)
+
+###################
+# bias and RMSE of beta against both estimands
+# Direct effect = 1 (beta in the DGP); total effect = 1 + gamma (beta + Xreal_to_Z),
+# because omega = omega0 + gamma * X, so a unit change in X shifts E[y] by 1 + gamma.
+###################
+
+estimand_summary <- results_fig4a %>%
+  filter(Covariate == "real") %>%
+  group_by(Model, Xreal_to_Z) %>%
+  summarise(
+    n            = n(),
+    mean_corr    = mean(Realized_Corr),
+    mean_beta    = mean(Estimate),
+    sd_beta      = sd(Estimate),
+    bias_direct  = mean(Estimate - True_Effect),
+    rmse_direct  = sqrt(mean((Estimate - True_Effect)^2)),
+    bias_total   = mean(Estimate - Total_Effect),
+    rmse_total   = sqrt(mean((Estimate - Total_Effect)^2)),
+    .groups      = "drop"
+  )
+
+print(as.data.frame(estimand_summary), digits = 3)
+write.csv(estimand_summary, "results/Simulation3_mediator_estimand.csv", row.names = FALSE)
+
+###################
+# variance partitioning diagnostics
+# Field_slope_on_X ~ 0  -> the spatial field does not absorb gamma * X (beta carries it)
+# Field_slope_on_X ~ gamma -> the field absorbs gamma * X (beta targets the direct effect)
+# Cor_field_omega0 -> how well the field recovers the independent part of omega
+###################
+
+partition_summary <- results_fig4a %>%
+  filter(Covariate == "real", Model != "Covariate_Only") %>%
+  group_by(Model, Xreal_to_Z) %>%
+  summarise(
+    mean_field_slope_on_X = mean(Field_slope_on_X),
+    mean_var_field_hat    = mean(Var_field_hat),
+    mean_var_omega0       = mean(Var_omega0),
+    mean_var_gammaX       = mean(Var_gammaX),
+    mean_cor_field_omega0 = mean(Cor_field_omega0),
+    .groups               = "drop"
+  )
+
+print(as.data.frame(partition_summary), digits = 3)
+write.csv(partition_summary, "results/Simulation3_mediator_variance_partition.csv", row.names = FALSE)
+
+# Indirect effect per replicate, delta = beta_RSR - beta_SGLMM (eq. 4-5), and the
+# unconditional RMSE gap (SGLMM - GLM) it should explain if partitioning drives the gap
+delta_summary <- results_fig4a %>%
+  filter(Covariate == "real", Model %in% c("Covariate_Only", "VAST_GMRF", "VAST_RSR")) %>%
+  select(Model, Simulation, Xreal_to_Z, Estimate, RMSE_latent) %>%
+  tidyr::pivot_wider(names_from = Model, values_from = c(Estimate, RMSE_latent)) %>%
+  mutate(
+    delta    = Estimate_VAST_RSR - Estimate_VAST_GMRF,
+    rmse_gap = RMSE_latent_VAST_GMRF - RMSE_latent_Covariate_Only
+  ) %>%
+  group_by(Xreal_to_Z) %>%
+  summarise(
+    mean_delta         = mean(delta),
+    sd_delta           = sd(delta),
+    mean_rmse_gap      = mean(rmse_gap),
+    cor_gap_abs_delta  = cor(rmse_gap, abs(delta)),
+    .groups            = "drop"
+  )
+
+print(as.data.frame(delta_summary), digits = 3)
+write.csv(delta_summary, "results/Simulation3_mediator_indirect_effect.csv", row.names = FALSE)
+
+
+test <- results_fig4a %>%
+  filter(Covariate == "real", Model == "Covariate_Only")
 
 ###################
 # Realized correlation summary
@@ -261,143 +357,4 @@ corr_summary_4a <- results_fig4a %>%
 
 print(corr_summary_4a)
 
-###################
-# Plotting
-###################
-
-model_colors <- c(
-  "Covariate_Only" = "#440154FF",
-  "VAST_GMRF"      = "#31688EFF",
-  "VAST_RSR"       = "#35B779FF",
-  "VAST_Selected"  = "gold"
-)
-
-model_labels <- c(
-  "Covariate_Only" = "GLM",
-  "VAST_GMRF"      = "SGLMM",
-  "VAST_RSR"       = "RSR-SGLMM",
-  "VAST_Selected"  = "SGLMM-selected"
-)
-
-# Add confounding labels
-corr_lookup_4a <- results_fig4a %>%
-  filter(Covariate == "real", Model == "Covariate_Only") %>%
-  group_by(Xreal_to_Z) %>%
-  summarise(mean_corr = mean(Realized_Corr, na.rm = TRUE), .groups = "drop") %>%
-  arrange(Xreal_to_Z) %>%
-  mutate(Confounding_Label = factor(
-    sprintf("r = %.2f", mean_corr),
-    levels = sprintf("r = %.2f", mean_corr)
-  ))
-
-results_fig4a <- results_fig4a %>%
-  select(-any_of("Confounding_Label")) %>%
-  left_join(corr_lookup_4a %>% select(Xreal_to_Z, Confounding_Label),
-            by = "Xreal_to_Z")
-
-# Summarize
-tmp = subset(results_fig4a, Covariate == "real" )
-tapply( tmp$RMSE_latent, INDEX = list(tmp$Model,tmp$Sample_Size, tmp$Confounding_Label), FUN = mean )
-
-shared_theme <- theme_bw() +
-  theme(
-    plot.title   = element_text(size = 14, face = "bold", hjust = 0.5),
-    plot.subtitle = element_text(size = 12),
-    strip.text = element_text(size = 12, face = "bold"),
-    axis.title.x = element_text(size = 13, margin = margin(t = 15)),
-    axis.text.x = element_text(angle = 45, hjust = 1, size =10),
-    axis.title.y = element_text(size = 13, margin = margin(r = 15)),
-    axis.text.y = element_text(size = 12),
-    legend.position = "none",
-    legend.title = element_text(size = 14),
-    legend.text = element_text(size = 12),
-    panel.grid      = element_blank()
-  )
-
-# Panel A: Unconditional RMSE across confounding strength
-p_uncond <- results_fig4a %>%
-  filter(Covariate == "real") %>%
-  ggplot(aes(x = Model, y = RMSE_latent, fill = Model)) +
-  geom_boxplot(alpha = 0.8, outlier.size = 0.3) +
-  facet_wrap(~ Confounding_Label, nrow = 1) +
-  scale_fill_manual(values = model_colors, labels = model_labels) +
-  scale_x_discrete(labels = model_labels) +
-  labs(
-    title = "Unconditional prediction",
-    x = "Model", y = "RMSE"
-  ) +
-  shared_theme
-
-# Panel B: Conditional RMSE across confounding strength
-p_cond <- results_fig4a %>%
-  filter(Covariate == "real", Model != "Covariate_Only") %>%
-  ggplot(aes(x = Model, y = RMSE_with_gmrf, fill = Model)) +
-  geom_boxplot(alpha = 0.8, outlier.size = 0.3) +
-  facet_wrap(~ Confounding_Label, nrow = 1) +
-  scale_fill_manual(values = model_colors, labels = model_labels) +
-  scale_x_discrete(labels = model_labels) +
-  labs(
-    title = "B) Conditional prediction RMSE across confounding strength",
-    x = "Model", y = "RMSE (conditional prediction)"
-  ) +
-  shared_theme
-
-# Panel C: Coefficient estimates across confounding strength
-p_coef <- results_fig4a %>%
-  filter(Covariate == "real") %>%
-  ggplot(aes(x = Model, y = Estimate, fill = Model)) +
-  geom_violin(alpha = 0.8) +
-  geom_boxplot(width = 0.1, fill = "white", outlier.size = 0.3) +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "black", linewidth = 0.7) +
-  facet_wrap(~ Confounding_Label, nrow = 1, scales = "free_y") +
-  scale_fill_manual(values = model_colors, labels = model_labels) +
-  scale_x_discrete(labels = model_labels) +
-  labs(
-    title = "C) Coefficient estimate across confounding strength",
-    x = "Model", y = "Estimate"
-  ) +
-  shared_theme
-
-# Shared legend
-legend_plot <- results_fig4a %>%
-  filter(Covariate == "real") %>%
-  ggplot(aes(x = Model, y = RMSE_latent, fill = Model)) +
-  geom_boxplot() +
-  scale_fill_manual(values = model_colors, labels = model_labels) +
-  labs(fill = "Model") +
-  theme_bw() +
-  theme(
-    legend.title     = element_text(size = 12, face = "bold"),
-    legend.text      = element_text(size = 11),
-    legend.position  = "bottom",
-    legend.direction = "horizontal"
-  )
-shared_legend <- ggpubr::get_legend(legend_plot)
-
-fig4a <- plot_grid(
-  p_uncond, p_cond, shared_legend,
-  ncol        = 1,
-  rel_heights = c(0.3, 0.3, 0.07)
-)
-
-fig4a_final <- plot_grid(
-  p_uncond, shared_legend,
-  ncol        = 1,
-  rel_heights = c(1, 0.08)
-)
-
-print(fig4a_final)
-
-ggsave(
-  filename = "figures/Figure4a_confounding_strength_A.png",
-  plot     = fig4a_final,
-  bg       = "white",
-  width    = 10, height = 4, units = "in", dpi = 300
-)
-
-ggsave(
-  filename = "figures/Figure4a_confounding_strength_A_final.png",
-  plot     = p_uncond,
-  bg       = "white",
-  width    = 10, height = 4, units = "in", dpi = 300
-)
+# The manuscript figure and tables for Simulation 3 are made by 03b_Simulation3_mediator_figure.R and 03c_Simulation3_mediator_tables.R

@@ -246,7 +246,7 @@ fig2 <- plot_grid(
 )
 
 ggsave(
-  filename = "figures/Figure2_RSR_conceptual_final.png",
+  filename = "figures/FigureS1_concept.png",
   plot     = fig2,
   bg       = "white",
   width    = 270, height = 220, units = "mm", dpi = 300

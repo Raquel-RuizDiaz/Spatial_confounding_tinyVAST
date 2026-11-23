@@ -1,0 +1,73 @@
+\begin{table}[ht]
+\centering
+\small
+\caption{Slope estimates for the true covariate in \textit{Simulation 3} (spatial latent variable as mediator; 50 replicates per level). $\gamma$ is the strength with which the latent variable includes the covariate ($\omega^*_s = \omega_s + \gamma z_s$), and $r$ is the mean realized correlation between $z_s$ and $\omega^*_s$. Mean $\hat{\beta}$ and SD are the mean and standard deviation of the estimated slope across replicates. Bias is the mean of $\hat{\beta}$ minus the target, and RMSE is the root mean squared difference between $\hat{\beta}$ and the target, where the target is either the direct effect ($\beta = 1$) or the total effect ($1 + \gamma$).}
+\label{tab:sim3_estimand}
+\begin{tabular}{llrrrrrrr}
+\toprule
+ & & & & & \multicolumn{2}{c}{Direct effect} & \multicolumn{2}{c}{Total effect} \\
+\cmidrule(lr){6-7}\cmidrule(lr){8-9}
+Estimator & $\gamma$ & $r$ & Mean $\hat{\beta}$ & SD & Bias & RMSE & Bias & RMSE \\
+\midrule
+GLM & 0 & $-0.04$ & $0.99$ & $0.19$ & $-0.01$ & $0.19$ & $-0.01$ & $0.19$ \\
+ & 0.15 & $0.28$ & $1.18$ & $0.23$ & $0.18$ & $0.29$ & $0.03$ & $0.23$ \\
+ & 0.25 & $0.41$ & $1.27$ & $0.20$ & $0.27$ & $0.34$ & $0.02$ & $0.20$ \\
+ & 0.5 & $0.63$ & $1.53$ & $0.20$ & $0.53$ & $0.57$ & $0.03$ & $0.20$ \\
+ & 0.75 & $0.70$ & $1.76$ & $0.21$ & $0.76$ & $0.79$ & $0.01$ & $0.21$ \\
+ & 1 & $0.85$ & $2.01$ & $0.18$ & $1.01$ & $1.03$ & $0.01$ & $0.17$ \\
+ & 4 & $0.99$ & $5.02$ & $0.17$ & $4.02$ & $4.02$ & $0.02$ & $0.17$ \\
+\addlinespace
+SGLMM & 0 & $-0.04$ & $1.01$ & $0.12$ & $0.01$ & $0.12$ & $0.01$ & $0.12$ \\
+ & 0.15 & $0.28$ & $1.16$ & $0.12$ & $0.16$ & $0.20$ & $0.01$ & $0.12$ \\
+ & 0.25 & $0.41$ & $1.22$ & $0.10$ & $0.22$ & $0.24$ & $-0.03$ & $0.10$ \\
+ & 0.5 & $0.63$ & $1.51$ & $0.11$ & $0.51$ & $0.52$ & $0.01$ & $0.11$ \\
+ & 0.75 & $0.70$ & $1.75$ & $0.12$ & $0.75$ & $0.76$ & $0.00$ & $0.12$ \\
+ & 1 & $0.85$ & $2.02$ & $0.12$ & $1.02$ & $1.03$ & $0.02$ & $0.12$ \\
+ & 4 & $0.99$ & $4.98$ & $0.11$ & $3.98$ & $3.99$ & $-0.02$ & $0.11$ \\
+\addlinespace
+RSR-SGLMM & 0 & $-0.04$ & $0.99$ & $0.19$ & $-0.01$ & $0.19$ & $-0.01$ & $0.19$ \\
+ & 0.15 & $0.28$ & $1.18$ & $0.23$ & $0.18$ & $0.29$ & $0.03$ & $0.23$ \\
+ & 0.25 & $0.41$ & $1.27$ & $0.20$ & $0.27$ & $0.34$ & $0.02$ & $0.20$ \\
+ & 0.5 & $0.63$ & $1.53$ & $0.20$ & $0.53$ & $0.57$ & $0.03$ & $0.20$ \\
+ & 0.75 & $0.70$ & $1.76$ & $0.21$ & $0.76$ & $0.79$ & $0.01$ & $0.21$ \\
+ & 1 & $0.85$ & $2.01$ & $0.18$ & $1.01$ & $1.03$ & $0.01$ & $0.17$ \\
+ & 4 & $0.99$ & $5.02$ & $0.17$ & $4.02$ & $4.02$ & $0.02$ & $0.17$ \\
+\addlinespace
+SGLMM-selected & 0 & $-0.04$ & $0.97$ & $0.24$ & $-0.03$ & $0.24$ & $-0.03$ & $0.24$ \\
+ & 0.15 & $0.28$ & $1.22$ & $0.26$ & $0.22$ & $0.34$ & $0.07$ & $0.26$ \\
+ & 0.25 & $0.41$ & $1.28$ & $0.22$ & $0.28$ & $0.36$ & $0.03$ & $0.22$ \\
+ & 0.5 & $0.63$ & $1.54$ & $0.21$ & $0.54$ & $0.58$ & $0.04$ & $0.21$ \\
+ & 0.75 & $0.70$ & $1.74$ & $0.27$ & $0.74$ & $0.78$ & $-0.01$ & $0.27$ \\
+ & 1 & $0.85$ & $2.00$ & $0.19$ & $1.00$ & $1.02$ & $0.00$ & $0.19$ \\
+ & 4 & $0.99$ & $5.04$ & $0.19$ & $4.04$ & $4.04$ & $0.04$ & $0.19$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[ht]
+\centering
+\small
+\caption{Diagnostics of the estimated spatial latent variable in \textit{Simulation 3} (means over 50 replicates per level). $\mathbf{A}\hat{\boldsymbol{\omega}}$ is the estimated spatial latent variable at the sampled locations, $\omega$ is the innovation of the latent variable (independent of $z$), and $\gamma z$ is the component added to the latent variable by the true covariate. Slope on $z$ is the slope from regressing $\mathbf{A}\hat{\boldsymbol{\omega}}$ on $z$, which indicates how much of $\gamma z$ the estimated latent variable absorbed. $\mathrm{var}(\cdot)$ is the variance across sampled locations, and $\mathrm{cor}(\mathbf{A}\hat{\boldsymbol{\omega}}, \omega)$ is the Pearson correlation across sampled locations, which indicates how closely the estimated latent variable matches $\omega$.}
+\label{tab:sim3_field}
+\begin{tabular}{llrrrrr}
+\toprule
+Estimator & $\gamma$ & Slope on $z$ & $\mathrm{var}(\mathbf{A}\hat{\boldsymbol{\omega}})$ & $\mathrm{var}(\omega)$ & $\mathrm{var}(\gamma z)$ & $\mathrm{cor}(\mathbf{A}\hat{\boldsymbol{\omega}}, \omega)$ \\
+\midrule
+SGLMM & 0 & $-0.03$ & $0.014$ & $0.018$ & $0.000$ & $0.83$ \\
+ & 0.15 & $0.05$ & $0.021$ & $0.024$ & $0.001$ & $0.85$ \\
+ & 0.25 & $0.06$ & $0.021$ & $0.021$ & $0.003$ & $0.82$ \\
+ & 0.5 & $0.03$ & $0.018$ & $0.020$ & $0.012$ & $0.83$ \\
+ & 0.75 & $0.00$ & $0.025$ & $0.028$ & $0.028$ & $0.84$ \\
+ & 1 & $-0.02$ & $0.016$ & $0.016$ & $0.044$ & $0.75$ \\
+ & 4 & $0.05$ & $0.016$ & $0.021$ & $0.775$ & $0.83$ \\
+\addlinespace
+RSR-SGLMM & 0 & $0.00$ & $0.008$ & $0.018$ & $0.000$ & $0.64$ \\
+ & 0.15 & $0.00$ & $0.012$ & $0.024$ & $0.001$ & $0.65$ \\
+ & 0.25 & $0.00$ & $0.014$ & $0.021$ & $0.003$ & $0.65$ \\
+ & 0.5 & $0.00$ & $0.011$ & $0.020$ & $0.012$ & $0.66$ \\
+ & 0.75 & $0.00$ & $0.016$ & $0.028$ & $0.028$ & $0.69$ \\
+ & 1 & $0.00$ & $0.012$ & $0.016$ & $0.044$ & $0.62$ \\
+ & 4 & $0.00$ & $0.012$ & $0.021$ & $0.775$ & $0.67$ \\
+\bottomrule
+\end{tabular}
+\end{table}

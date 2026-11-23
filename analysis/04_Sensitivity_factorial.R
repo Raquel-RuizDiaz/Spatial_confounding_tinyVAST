@@ -1,8 +1,9 @@
 # Sensitivity analysis - factorial design
-# Keeps the original sample size x false covariates factorial
-# BUT adds induced confounding between X_true and Z
 
 library(tinyVAST)
+# tinyVAST >= 1.6 keeps rmvnorm_prec() internal with argument `prec` 
+rmvnorm_prec <- function(Q, n = 1) tinyVAST:::rmvnorm_prec(prec = Q, n = n)
+cat("tinyVAST version:", as.character(packageVersion("tinyVAST")), "\n")
 library(ggplot2)
 library(dplyr)
 library(cowplot)
@@ -12,7 +13,7 @@ library(viridis)
 # Helper functions
 rmse <- function(vec) sqrt(mean(vec^2))
 
-# Configuration — same as original Figure 4 factorial but with fixed confounding level
+# Configuration — factorial with fixed confounding level
 config_fig4b <- list(
   seed = 101,
   n_simulations = 50,
@@ -240,7 +241,7 @@ for (n_s in config_fig4b$sample_sizes) {
   }
 }
 
-#write.csv(results_fig4b, "results/fig4b_factorial_with_confounding_results.csv", row.names = FALSE)
+write.csv(results_fig4b, "results/Sensitivity_factorial_results.csv", row.names = FALSE)
 
 ###################
 # Plotting — original Figure 4 style
@@ -353,7 +354,7 @@ fig4b_final <- plot_grid(
 print(fig4b_final)
 
 ggsave(
-  filename = "figures/Figure4b_factorial_with_confounding_final.png",
+  filename = "figures/FigureS2_factorial.png",
   plot     = fig4b_uncond,
   bg       = "white",
   width    = 10, height = 8, units = "in", dpi = 300
