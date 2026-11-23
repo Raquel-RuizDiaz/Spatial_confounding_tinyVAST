@@ -1,57 +1,77 @@
-# Analysis scripts
+# When and how to use restricted spatial regression to separate environmental effects from spatial confounding
 
-Code for the simulations and case study in *When and how to use restricted spatial regression to
-separate environmental effects from spatial confounding*. Run every script from the project root
-(the folder that contains `analysis/`, `data/`, `figures/` and `results/`).
+R code to reproduce the simulations, case study, figures and tables in:
 
-## Scripts
+> Ruiz Diaz, R. & Thorson, J. T. *When and how to use restricted spatial regression to separate environmental effects from spatial confounding.* Preprint: EcoEvoRxiv, https://doi.org/10.32942/X28351
 
-All scripts are in `analysis/`.
+The paper compares a spatial generalized linear mixed model (SGLMM) with the restricted spatial regression (RSR) estimator, as implemented in the [tinyVAST](https://cran.r-project.org/package=tinyVAST) R package. The SGLMM slope targets the direct effect of a covariate, and the RSR slope targets its total effect. Three simulations, in which an unmeasured spatial process is independent of the covariate, confounds its effect or mediates it, and a case study of three Bering Sea species show which estimator targets which effect.
 
-| Script | What it does | Manuscript output |
+## Repository structure
+
+```
+.
+├── analysis/   R scripts, numbered in the order they are run
+├── data/       Bering Sea survey data used in the case study
+├── figures/    Figures as they appear in the paper
+└── results/    Simulation and case-study outputs used in the paper
+```
+
+## Requirements
+
+The results were produced with R 4.5.3, tinyVAST 1.6.3, fmesher 0.8.0, RTMB 2.0 and TMB 1.9.23. tinyVAST compiles C++ code, so a working compiler is needed (Rtools on Windows, the Xcode command line tools on macOS).
+
+```r
+install.packages(c(
+  "tinyVAST", "fmesher", "RTMB", "Matrix", "pracma", "mvtnorm", "abind", "cv",
+  "dplyr", "tidyr", "ggplot2", "cowplot", "ggpubr", "gridExtra", "patchwork",
+  "viridis", "scales", "sf", "terra", "rnaturalearth"
+))
+
+# To use the same tinyVAST release as the paper:
+# remotes::install_version("tinyVAST", version = "1.6.3")
+```
+
+### Outputs
+
+Each script writes its outputs to `results/` and `figures/`, named after the script:
+
+| Script | `results/` | `figures/` |
 |---|---|---|
-| `00_Conceptual_figure.R` | Conceptual illustration of the RSR decomposition | Figure S1 |
-| `01_Simulation1_independent.R` | Simulation 1: spatial latent variable independent of the covariate | Figure 1 |
-| `02_Simulation2_confounder.R` | Simulation 2: spatial latent variable as confounder. Runs the simulation and saves `results/Simulation2_confounder_*.csv` | — |
-| `02b_Simulation2_confounder_figure_tables.R` | Figure and tables for Simulation 2, from the saved results | Figure 2, Tables 1–2 |
-| `03_Simulation3_mediator.R` | Simulation 3: spatial latent variable as mediator. Runs the simulation and saves `results/Simulation3_mediator_results.csv` and summaries | — |
-| `03b_Simulation3_mediator_figure.R` | Figure for Simulation 3, from the saved results | Figure 3 |
-| `03c_Simulation3_mediator_tables.R` | Tables for Simulation 3, from the saved summaries | Tables 3–4 |
-| `04_Sensitivity_factorial.R` | Sensitivity analysis across sample sizes and numbers of false covariates | Figure S2 |
-| `05_EBS_case_study.R` | Eastern Bering Sea case study (uses `data/`) | Figure 4 |
+| `00` | | `FigureS1_concept.png` |
+| `01` | `Simulation1_independent_results.csv`, `Simulation1_independent_summary.csv` | `Figure1_Simulation1.png` |
+| `02` | `Simulation2_confounder_results.csv`, `Simulation2_confounder_estimand.csv`, `Simulation2_confounder_field.csv`, `Simulation2_confounder_indirect_effect.csv` | |
+| `02b` | `Tables_Simulation2_confounder.tex` | `Figure2_Simulation2.png` |
+| `03` | `Simulation3_mediator_results.csv`, `Simulation3_mediator_estimand.csv`, `Simulation3_mediator_variance_partition.csv`, `Simulation3_mediator_indirect_effect.csv` | |
+| `03b` | | `Figure3_Simulation3.png` |
+| `03c` | `Tables_Simulation3_mediator.tex` | |
+| `04` | `Sensitivity_factorial_results.csv` | `FigureS2_factorial.png` |
+| `05` | `EBS_case_study_coefficients.csv`, `EBS_case_study_curves.csv`, `EBS_case_study_coefficients.rds` | `Figure4_case_study.png` |
 
-`02_Simulation2_confounder.R` reuses the simulation function defined in `03_Simulation3_mediator.R`,
-so keep both files in `analysis/`. Scripts ending in `b` or `c` only read saved results and run in
-seconds; the others refit the models.
+The `*_results.csv` files contain one row per model, covariate and simulation replicate. The other CSV files are summaries across replicates.
 
-## Outputs
+## Using the RSR estimator in your own analysis
 
-Figures are written to `figures/` under the names used in the manuscript:
+The RSR estimator is computed after fitting, without changing the SGLMM. In tinyVAST, request it with `get_rsr = TRUE`:
 
-| Manuscript | Script | File |
-|---|---|---|
-| Figure 1 | `01_Simulation1_independent.R` | `figures/Figure1_Simulation1.png` |
-| Figure 2 | `02b_Simulation2_confounder_figure_tables.R` | `figures/Figure2_Simulation2.png` |
-| Figure 3 | `03b_Simulation3_mediator_figure.R` | `figures/Figure3_Simulation3.png` |
-| Figure 4 | `05_EBS_case_study.R` | `figures/Figure4_case_study.png` |
-| Figure S1 | `00_Conceptual_figure.R` | `figures/FigureS1_concept.png` |
-| Figure S2 | `04_Sensitivity_factorial.R` | `figures/FigureS2_factorial.png` |
+```r
+library(tinyVAST)
 
-Results are written to `results/`, named after the script that writes them:
+fit <- tinyVAST(
+  formula        = y ~ x1 + x2,
+  data           = dat,             # data frame with columns y, x1, x2, X, Y
+  space_term     = "",              # spatial random effect with no covariance among variables
+  space_columns  = c("X", "Y"),
+  spatial_domain = fmesher::fm_mesh_2d(dat[, c("X", "Y")]),
+  control        = tinyVASTcontrol(get_rsr = TRUE)
+)
 
-| Script | Files in `results/` |
-|---|---|
-| `01_Simulation1_independent.R` | `Simulation1_independent_results.csv`, `Simulation1_independent_summary.csv` |
-| `02_Simulation2_confounder.R` | `Simulation2_confounder_results.csv`, `Simulation2_confounder_estimand.csv`, `Simulation2_confounder_field.csv`, `Simulation2_confounder_indirect_effect.csv` |
-| `02b_Simulation2_confounder_figure_tables.R` | `Tables_Simulation2_confounder.tex` (Tables 1–2) |
-| `03_Simulation3_mediator.R` | `Simulation3_mediator_results.csv`, `Simulation3_mediator_estimand.csv`, `Simulation3_mediator_variance_partition.csv`, `Simulation3_mediator_indirect_effect.csv` |
-| `03c_Simulation3_mediator_tables.R` | `Tables_Simulation3_mediator.tex` (Tables 3–4) |
-| `04_Sensitivity_factorial.R` | `Sensitivity_factorial_results.csv` |
-| `05_EBS_case_study.R` | `EBS_case_study_coefficients.csv`, `EBS_case_study_curves.csv`, `EBS_case_study_coefficients.rds` |
+# SGLMM slopes (direct effect)
+as.list(fit$sdrep, what = "Estimate")$alpha_j
+# RSR slopes (total effect) and their standard errors
+as.list(fit$sdrep, what = "Estimate",   report = TRUE)$alphaprime_j
+as.list(fit$sdrep, what = "Std. Error", report = TRUE)$alphaprime_j
+```
 
-## Software
+## Questions
 
-Results were produced with tinyVAST 1.6.3 (CRAN). In this version `rmvnorm_prec()` is internal, so
-the simulation scripts define a small wrapper that calls `tinyVAST:::rmvnorm_prec(prec = Q, n = n)`.
-Other packages: RTMB, fmesher, pracma, Matrix, mvtnorm, abind, cv, dplyr, tidyr, ggplot2, cowplot,
-ggpubr, gridExtra, patchwork, viridis, sf, terra, rnaturalearth.
+Please open an issue in this repository.
